@@ -1,78 +1,49 @@
-"""
-English Learning Telegram Bot
-Точка входа: инициализация базы данных, регистрация хэндлеров, запуск polling.
-"""
-import logging
+# .github/workflows/ci.yml
+name: CI
 
-from telegram.ext import (
-    ApplicationBuilder,
-    CommandHandler,
-    CallbackQueryHandler,
-    MessageHandler,
-    filters,
-)
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
-from config import BOT_TOKEN
-from database import init_db
-from handlers.start import start_command, help_command
-from handlers.dictionary import (
-    add_word_command,
-    my_words_command,
-    delete_word_callback,
-    add_word_text_handler,
-    WAITING_FOR_WORD,
-)
-from handlers.quiz import (
-    quiz_command,
-    quiz_answer_callback,
-)
-from handlers.voice import (
-    pronounce_command,
-    voice_message_handler,
-)
+jobs:
+  test:
+    runs-on: ubuntu-latest
 
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
-)
-logger = logging.getLogger(__name__)
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-def main() -> None:
-    if not BOT_TOKEN:
-        raise RuntimeError(
-            "Не задан BOT_TOKEN. Скопируйте .env.example в .env и укажите токен бота."
-        )
+      - name: Install ffmpeg (для распознавания голосовых)
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
-    init_db()
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install flake8
 
-    application = ApplicationBuilder().token(BOT_TOKEN).build()
+      - name: Lint with flake8
+        run: flake8 . --max-line-length=100 --exclude=venv,.venv
 
-    # Базовые команды
-    application.add_handler(CommandHandler("start", start_command))
-    application.add_handler(CommandHandler("help", help_command))
+      - name: Check Python syntax (all modules import cleanly)
+        run: |
+          python -m py_compile main.py config.py database.py
+          python -m py_compile handlers/*.py utils/*.py
 
-    # Личный словарь пользователя
-    application.add_handler(CommandHandler("add", add_word_command))
-    application.add_handler(CommandHandler("mywords", my_words_command))
-    application.add_handler(CallbackQueryHandler(delete_word_callback, pattern=r"^delword:"))
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: test
 
-    # Квиз на перевод слов
-    application.add_handler(CommandHandler("quiz", quiz_command))
-    application.add_handler(CallbackQueryHandler(quiz_answer_callback, pattern=r"^quiz:"))
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    # Тренировка произношения (распознавание голосовых сообщений)
-    application.add_handler(CommandHandler("pronounce", pronounce_command))
-    application.add_handler(MessageHandler(filters.VOICE, voice_message_handler))
-
-    # Текстовые сообщения без команды — используются для добавления слова после /add
-    application.add_handler(
-        MessageHandler(filters.TEXT & ~filters.COMMAND, add_word_text_handler)
-    )
-
-    logger.info("Бот запущен. Ожидание сообщений...")
-    application.run_polling(allowed_updates=["message", "callback_query"])
-
-
-if __name__ == "__main__":
-    main()
+      - name: Build Docker image
+        run: docker build -t english-bot:ci .
