@@ -1,0 +1,20 @@
+# Секреты и окружение
+.env
+
+# База данных
+*.db
+*.sqlite3
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
