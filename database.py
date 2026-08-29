@@ -4,7 +4,7 @@
 """
 import sqlite3
 from contextlib import contextmanager
-from typing import List, Tuple, Optional
+from typing import List, Optional
 
 from config import DB_PATH
 
@@ -71,7 +71,8 @@ def add_word(user_id: int, word: str, translation: str) -> bool:
 def get_user_words(user_id: int) -> List[sqlite3.Row]:
     with get_connection() as conn:
         cur = conn.execute(
-            "SELECT id, word, translation, learned FROM words WHERE user_id = ? ORDER BY added_at DESC",
+            "SELECT id, word, translation, learned FROM words "
+            "WHERE user_id = ? ORDER BY added_at DESC",
             (user_id,),
         )
         return cur.fetchall()

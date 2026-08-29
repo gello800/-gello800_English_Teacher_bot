@@ -20,7 +20,6 @@ from handlers.dictionary import (
     my_words_command,
     delete_word_callback,
     add_word_text_handler,
-    WAITING_FOR_WORD,
 )
 from handlers.quiz import (
     quiz_command,
